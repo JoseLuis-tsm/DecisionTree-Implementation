@@ -1,6 +1,8 @@
 """Regression tree skeleton."""
 from .base import BaseDecisionTree
 
+import numpy as np  # promedios, medianas, sumas
+
 
 class DecisionTreeRegressor(BaseDecisionTree):
     """Tree variant for regression.
@@ -13,6 +15,9 @@ class DecisionTreeRegressor(BaseDecisionTree):
     Each hook below documents what it receives and must return; see
     ``BaseDecisionTree`` for the full contract.
     """
+
+    # Criterios que acepta este árbol (fit los valida)
+    _criteria = ("mse", "mae")
 
     def __init__(self, max_depth=None, min_samples_split=2, criterion="mse"):
         super().__init__(max_depth, min_samples_split, criterion)
@@ -29,7 +34,8 @@ class DecisionTreeRegressor(BaseDecisionTree):
             Node: Leaf (when a stopping rule triggers) or internal node with
             two subtrees built from the best split.
         """
-        raise NotImplementedError("TODO")
+        # Misma lógica que clasificación: se reutiliza la de BaseDecisionTree
+        return super()._build_tree(X, y, depth)
 
     def _impurity(self, y):
         """Impurity of ``y`` per ``self.criterion``: mean squared error or mean absolute error of y around its center (mean for 'mse', median for 'mae').
@@ -40,7 +46,11 @@ class DecisionTreeRegressor(BaseDecisionTree):
         Returns:
             float: Impurity (0 if pure).
         """
-        raise NotImplementedError("TODO: mse / mae")
+        if self.criterion == "mse":
+            return float(np.mean((y - np.mean(y)) ** 2))       # promedio de (y_i - media)^2
+        if self.criterion == "mae":
+            return float(np.mean(np.abs(y - np.median(y))))    # promedio de |y_i - mediana|
+        raise ValueError(f"Unsupported criterion: {self.criterion}")
 
     def _best_split(self, X, y):
         """Search all features/thresholds for the largest impurity decrease.
@@ -53,7 +63,8 @@ class DecisionTreeRegressor(BaseDecisionTree):
             tuple (int, float) or None: ``(feature_index, threshold)``, or
             None if no split reduces impurity.
         """
-        raise NotImplementedError("TODO")
+        # Misma búsqueda que clasificación; solo cambia _impurity, que se llama desde ahí
+        return super()._best_split(X, y)
 
     def _leaf_value(self, y):
         """Return the mean of y.
@@ -64,7 +75,7 @@ class DecisionTreeRegressor(BaseDecisionTree):
         Returns:
             The prediction for the leaf.
         """
-        raise NotImplementedError("TODO: mean")
+        return float(np.mean(y))  # promedio de las etiquetas de la hoja
 
     def _score(self, y_true, y_pred):
         """Metric for ``eval``: R^2 = 1 - SS_res / SS_tot.
@@ -76,4 +87,8 @@ class DecisionTreeRegressor(BaseDecisionTree):
         Returns:
             float: Score (higher is better).
         """
-        raise NotImplementedError("TODO: R^2")
+        ss_res = np.sum((y_true - y_pred) ** 2)           # error del modelo
+        ss_tot = np.sum((y_true - np.mean(y_true)) ** 2)  # error de predecir siempre la media
+        if ss_tot == 0:                                   # y_true constante: R^2 no está definido
+            return 1.0 if ss_res == 0 else 0.0
+        return float(1 - ss_res / ss_tot)
